@@ -2,20 +2,27 @@
 
 ![CI](https://github.com/estefanymoramellado/llm-quality-harness/actions/workflows/ci.yml/badge.svg)
 
-REST API para análisis de texto y evaluación de calidad de respuestas de modelos de lenguaje (LLMs).
+REST API para análisis de texto y evaluación automática de calidad de respuestas generadas por modelos de lenguaje (LLMs).
 
-## ¿Qué hace este proyecto?
+## ¿Por qué existe este proyecto?
+
+Los LLMs no siempre responden bien. A veces dan respuestas vacías, demasiado cortas, en el idioma incorrecto, o sin coherencia con el prompt. Este proyecto nació para medir y detectar esos problemas automáticamente.
+
+## ¿Qué hace?
 
 - Analiza métricas de texto: palabras, caracteres, oraciones
-- Evalúa la calidad de respuestas generadas por LLMs locales (Ollama)
-- Suite de tests automatizados con pytest
+- Envía prompts a un LLM local (Ollama) y evalúa la respuesta
+- Detecta el idioma de la respuesta y su nivel de confianza
+- Flags automáticos si la respuesta está vacía o es demasiado corta
+- Suite de tests automatizados con pytest y CI/CD con GitHub Actions
 
 ## Tecnologías
 
 - Python 3.14
 - FastAPI
 - pytest
-- Ollama (LLM local)
+- Ollama + Qwen 2.5 Coder 7B (LLM local)
+- GitHub Actions (CI/CD)
 
 ## Instalación
 
@@ -45,3 +52,21 @@ python -m pytest tests/ -v
 |--------|------|-------------|
 | GET | `/` | Health check |
 | POST | `/analyze` | Analiza métricas de un texto |
+| POST | `/evaluate` | Envía prompt a LLM y evalúa la respuesta |
+
+## Ejemplo de respuesta del /evaluate
+
+```json
+{
+  "prompt": "Explica qué es una API en una sola oración",
+  "response": "Una API es un conjunto de reglas que permite que diferentes programas se comuniquen entre sí.",
+  "word_count": 17,
+  "char_count": 91,
+  "quality": {
+    "is_empty": false,
+    "is_too_short": false,
+    "language": "es",
+    "language_confidence": "high"
+  }
+}
+```
