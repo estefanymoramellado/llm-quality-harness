@@ -6,7 +6,7 @@ REST API para análisis de texto y evaluación automática de calidad de respues
 
 ## ¿Por qué existe este proyecto?
 
-Los LLMs no siempre responden bien. A veces dan respuestas vacías, demasiado cortas, en el idioma incorrecto, o sin coherencia con el prompt. Este proyecto nació para medir y detectar esos problemas automáticamente.
+Los LLMs no siempre responden bien. A veces dan respuestas vacías, demasiado cortas, en el idioma incorrecto, o sin coherencia con el prompt. Este proyecto nació para medir y detectar esos problemas automáticamente — incluyendo un sistema de evaluación con LLM-as-a-Judge.
 
 ## ¿Qué hace?
 
@@ -14,6 +14,7 @@ Los LLMs no siempre responden bien. A veces dan respuestas vacías, demasiado co
 - Envía prompts a un LLM local (Ollama) y evalúa la respuesta
 - Detecta el idioma de la respuesta y su nivel de confianza
 - Flags automáticos si la respuesta está vacía o es demasiado corta
+- **LLM-as-a-Judge**: usa el mismo modelo para evaluar la calidad de su propia respuesta con un score del 1 al 5 y feedback
 - Suite de tests automatizados con pytest y CI/CD con GitHub Actions
 
 ## Tecnologías
@@ -66,7 +67,7 @@ python -m pytest tests/ -v
 |--------|------|-------------|
 | GET | `/` | Health check |
 | POST | `/analyze` | Analiza métricas de un texto |
-| POST | `/evaluate` | Envía prompt a LLM y evalúa la respuesta |
+| POST | `/evaluate` | Envía prompt a LLM y evalúa la respuesta con LLM-as-a-Judge |
 
 ## Ejemplo de respuesta del /evaluate
 
@@ -80,7 +81,15 @@ python -m pytest tests/ -v
     "is_empty": false,
     "is_too_short": false,
     "language": "es",
-    "language_confidence": "high"
+    "language_confidence": "high",
+    "judge_score": 4,
+    "judge_feedback": "Respuesta clara y concisa, cubre el concepto principal."
   }
 }
 ```
+
+## Limitaciones conocidas
+
+- El juez usa el mismo modelo que genera la respuesta — puede ser condescendiente consigo mismo
+- La detección de idioma tiene baja confianza con textos menores a 3 palabras
+- Los tests de Ollama se saltan en CI/CD por requerir entorno local
