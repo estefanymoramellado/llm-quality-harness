@@ -22,3 +22,21 @@ def test_analyze_empty_text():
     response = client.post("/analyze", json={"text": ""})
     assert response.status_code == 200
     assert response.json()["word_count"] == 0
+
+def test_evaluate_returns_response():
+    response = client.post("/evaluate", json={"prompt": "Di solo la palabra: hola"})
+    assert response.status_code == 200
+    data = response.json()
+    assert "response" in data
+    assert "word_count" in data
+    assert "char_count" in data
+
+def test_evaluate_response_not_empty():
+    response = client.post("/evaluate", json={"prompt": "Di solo la palabra: hola"})
+    assert response.status_code == 200
+    assert len(response.json()["response"]) > 0
+
+def test_evaluate_returns_prompt():
+    response = client.post("/evaluate", json={"prompt": "Di solo la palabra: hola"})
+    assert response.status_code == 200
+    assert response.json()["prompt"] == "Di solo la palabra: hola"
