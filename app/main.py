@@ -63,10 +63,56 @@ def evaluate_llm(request: LLMRequest):
         "language_confidence": "low" if word_count < 3 else "high"
     }
 
+    judge = judge_response(request.prompt, llm_response)
+
     return {
         "prompt": request.prompt,
         "response": llm_response,
         "word_count": word_count,
         "char_count": len(llm_response),
-        "quality": quality
+        "quality": {
+            "is_empty": len(llm_response.strip()) == 0,
+            "is_too_short": word_count < 10,
+            "language": language,
+            "language_confidence": "low" if word_count < 3 else "high",
+            "judge_score": judge["judge_score"],
+            "judge_feedback": judge["judge_feedback"]
+        }
     }
+
+def judge_response(prompt: str, response: str) -> dict:
+    judge_prompt = f"""Eres un evaluador experto de respuestas de IA.
+
+Dado este prompt: "{prompt}"
+Y esta respuesta: "{response}"
+
+Evalúa la calidad de la respuesta considerando:
+- Relevancia con el prompt
+- Claridad y coherencia
+- Completitud
+
+Responde ÚNICAMENTE con este JSON sin texto adicional:
+{{"score": <número del 1 al 5>, "feedback": "<una oración breve>"}}"""
+
+    try:
+        judge_result = httpx.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "qwen2.5-coder:7b",
+                "prompt": judge_prompt,
+                "stream": False
+            },
+            timeout=120.0
+        )
+        import json
+        raw = judge_result.json()["response"].strip()
+        parsed = json.loads(raw)
+        return {
+            "judge_score": parsed.get("score"),
+            "judge_feedback": parsed.get("feedback")
+        }
+    except:
+        return {
+            "judge_score": None,
+            "judge_feedback": "Judge evaluation failed"
+        }
