@@ -40,3 +40,17 @@ def test_evaluate_returns_prompt():
     response = client.post("/evaluate", json={"prompt": "Di solo la palabra: hola"})
     assert response.status_code == 200
     assert response.json()["prompt"] == "Di solo la palabra: hola"
+
+def test_evaluate_has_quality_metrics():
+    response = client.post("/evaluate", json={"prompt": "Di solo la palabra: hola"})
+    assert response.status_code == 200
+    data = response.json()
+    assert "quality" in data
+    assert "is_empty" in data["quality"]
+    assert "is_too_short" in data["quality"]
+    assert "language" in data["quality"]
+
+def test_evaluate_not_empty():
+    response = client.post("/evaluate", json={"prompt": "Di solo la palabra: hola"})
+    assert response.status_code == 200
+    assert response.json()["quality"]["is_empty"] == False
