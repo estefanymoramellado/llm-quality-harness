@@ -1,5 +1,7 @@
 # LLM Quality Harness
 
+![CI](https://github.com/estefanymoramellado/llm-quality-harness/actions/workflows/ci.yml/badge.svg)
+
 REST API para análisis de texto y evaluación de calidad de respuestas de modelos de lenguaje (LLMs).
 
 ## ¿Qué hace este proyecto?
