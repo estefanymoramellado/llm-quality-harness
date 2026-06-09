@@ -24,6 +24,20 @@ Los LLMs no siempre responden bien. A veces dan respuestas vacías, demasiado co
 - Ollama + Qwen 2.5 Coder 7B (LLM local)
 - GitHub Actions (CI/CD)
 
+## Requisitos previos
+
+Este proyecto requiere [Ollama](https://ollama.com) corriendo localmente con el modelo Qwen 2.5 Coder.
+
+1. Instala Ollama desde https://ollama.com
+2. Descarga el modelo:
+```bash
+ollama pull qwen2.5-coder:7b
+```
+3. Verifica que Ollama está corriendo:
+```bash
+ollama serve
+```
+
 ## Instalación
 
 ```bash

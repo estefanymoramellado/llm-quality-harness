@@ -29,16 +29,24 @@ def analyze_text(request: TextRequest):
 
 @app.post("/evaluate")
 def evaluate_llm(request: LLMRequest):
-    response = httpx.post(
-        "http://localhost:11434/api/generate",
-        json={
-            "model": "qwen2.5-coder:7b",
-            "prompt": request.prompt,
-            "stream": False
-        },
-        timeout=120.0
-    )
-    
+    try:
+        response = httpx.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "qwen2.5-coder:7b",
+                "prompt": request.prompt,
+                "stream": False
+            },
+            timeout=120.0
+        )
+        response.raise_for_status()
+    except httpx.ConnectError:
+        return {"error": "LLM service unavailable. Make sure Ollama is running."}
+    except httpx.TimeoutException:
+        return {"error": "LLM service timed out. Try again or use a shorter prompt."}
+    except Exception as e:
+        return {"error": f"Unexpected error: {str(e)}"}
+
     llm_response = response.json()["response"]
     words = llm_response.split()
     word_count = len(words)
