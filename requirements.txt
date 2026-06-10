@@ -6,3 +6,5 @@ langdetect==1.0.9
 anyio==4.13.0
 starlette==1.2.1
 pydantic==2.13.4
+langfuse
+python-dotenv

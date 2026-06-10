@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Quality Harness</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0f1117;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 32px;
+            font-size: 0.95rem;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 16px;
+            background: #1e2130;
+            border: 1px solid #2e3250;
+            border-radius: 8px;
+            color: #e0e0e0;
+            font-size: 1rem;
+            resize: vertical;
+            min-height: 100px;
+            outline: none;
+        }
+
+        textarea:focus { border-color: #5c6bc0; }
+
+        button {
+            margin-top: 12px;
+            padding: 12px 28px;
+            background: #5c6bc0;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover { background: #3f51b5; }
+        button:disabled { background: #444; cursor: not-allowed; }
+
+        .results {
+            margin-top: 32px;
+            display: none;
+        }
+
+        .card {
+            background: #1e2130;
+            border: 1px solid #2e3250;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .card h3 {
+            color: #888;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .response-text {
+            color: #e0e0e0;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .metric {
+            background: #0f1117;
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: #5c6bc0;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        .score-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .score-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #5c6bc0;
+            min-width: 50px;
+        }
+
+        .bar-container {
+            flex: 1;
+            background: #0f1117;
+            border-radius: 4px;
+            height: 8px;
+        }
+
+        .bar-fill {
+            height: 8px;
+            border-radius: 4px;
+            background: #5c6bc0;
+            transition: width 0.5s ease;
+        }
+
+        .feedback {
+            color: #aaa;
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+
+        .flags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .flag {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+
+        .flag.ok { background: #1b3a2e; color: #4caf50; }
+        .flag.warning { background: #3a2a1b; color: #ff9800; }
+
+        .tokens {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .loading {
+            color: #888;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error {
+            color: #ef5350;
+            margin-top: 12px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LLM Quality Harness</h1>
+        <p class="subtitle">Evalúa la calidad de respuestas generadas por LLMs en tiempo real</p>
+
+        <textarea id="prompt" placeholder="Escribe un prompt para evaluar..."></textarea>
+        <button id="btn">Evaluar</button>
+        <button id="btn-clear" style="background:#2e3250; margin-left: 8px;">Limpiar</button>
+        <p class="loading" id="loading">⏳ Evaluando con Ollama...</p>
+        <p class="error" id="error"></p>
+
+        <div class="results" id="results">
+            <div class="card">
+                <h3>Respuesta del LLM</h3>
+                <p class="response-text" id="response"></p>
+            </div>
+
+            <div class="card">
+                <h3>Métricas de texto</h3>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value" id="words"></div>
+                        <div class="metric-label">Palabras</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="chars"></div>
+                        <div class="metric-label">Caracteres</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="lang"></div>
+                        <div class="metric-label">Idioma</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Score del juez</h3>
+                <div class="score-bar">
+                    <div class="score-number" id="score"></div>
+                    <div class="bar-container">
+                        <div class="bar-fill" id="bar"></div>
+                    </div>
+                    <span style="color:#888">/ 5</span>
+                </div>
+                <p class="feedback" id="feedback"></p>
+            </div>
+
+            <div class="card">
+                <h3>Flags de calidad</h3>
+                <div class="flags" id="flags"></div>
+            </div>
+
+            <div class="card">
+                <h3>Tokens consumidos</h3>
+                <div class="tokens">
+                    <div class="metric">
+                        <div class="metric-value" id="prompt-tokens"></div>
+                        <div class="metric-label">Prompt</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="completion-tokens"></div>
+                        <div class="metric-label">Completion</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="total-tokens"></div>
+                        <div class="metric-label">Total</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('btn').addEventListener('click', runEvaluation);
+        document.getElementById('btn-clear').addEventListener('click', function() {
+            document.getElementById('prompt').value = '';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+        });
+
+        async function runEvaluation() {
+            const prompt = document.getElementById('prompt').value.trim();
+            if (!prompt) return;
+
+            const btn = document.getElementById('btn');
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const results = document.getElementById('results');
+
+            btn.disabled = true;
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            results.style.display = 'none';
+
+            try {
+                const res = await fetch('http://127.0.0.1:8000/evaluate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+
+                const data = await res.json();
+
+                if (data.error) {
+                    error.textContent = data.error;
+                    error.style.display = 'block';
+                    return;
+                }
+
+                document.getElementById('response').textContent = data.response;
+                document.getElementById('words').textContent = data.word_count;
+                document.getElementById('chars').textContent = data.char_count;
+                document.getElementById('lang').textContent = data.quality.language.toUpperCase();
+                document.getElementById('score').textContent = data.quality.judge_score;
+                document.getElementById('bar').style.width = (data.quality.judge_score / 5 * 100) + '%';
+                document.getElementById('feedback').textContent = data.quality.judge_feedback;
+                document.getElementById('prompt-tokens').textContent = data.quality.prompt_tokens;
+                document.getElementById('completion-tokens').textContent = data.quality.completion_tokens;
+                document.getElementById('total-tokens').textContent = data.quality.total_tokens;
+
+                const flagsEl = document.getElementById('flags');
+                flagsEl.innerHTML = '';
+                flagsEl.innerHTML += `<span class="flag ${data.quality.is_empty ? 'warning' : 'ok'}">${data.quality.is_empty ? '⚠ Vacía' : '✓ No vacía'}</span>`;
+                flagsEl.innerHTML += `<span class="flag ${data.quality.is_too_short ? 'warning' : 'ok'}">${data.quality.is_too_short ? '⚠ Muy corta' : '✓ Longitud ok'}</span>`;
+                flagsEl.innerHTML += `<span class="flag ${data.quality.language_confidence === 'low' ? 'warning' : 'ok'}">${data.quality.language_confidence === 'low' ? '⚠ Idioma incierto' : '✓ Idioma detectado'}</span>`;
+
+                results.style.display = 'block';
+
+            } catch (e) {
+                error.textContent = 'No se pudo conectar con la API. ¿Está corriendo el servidor?';
+                error.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
