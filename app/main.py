@@ -1,7 +1,15 @@
+import os
+import json
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel
 import httpx
 from langdetect import detect
+from langfuse import observe, get_client
+
+load_dotenv()
+
+langfuse = get_client()
 
 app = FastAPI()
 
@@ -25,59 +33,6 @@ def analyze_text(request: TextRequest):
         "char_count": len(text),
         "char_no_spaces": len(text.replace(" ", "")),
         "sentence_count": text.count(".") + text.count("!") + text.count("?"),
-    }
-
-@app.post("/evaluate")
-def evaluate_llm(request: LLMRequest):
-    try:
-        response = httpx.post(
-            "http://localhost:11434/api/generate",
-            json={
-                "model": "qwen2.5-coder:7b",
-                "prompt": request.prompt,
-                "stream": False
-            },
-            timeout=120.0
-        )
-        response.raise_for_status()
-    except httpx.ConnectError:
-        return {"error": "LLM service unavailable. Make sure Ollama is running."}
-    except httpx.TimeoutException:
-        return {"error": "LLM service timed out. Try again or use a shorter prompt."}
-    except Exception as e:
-        return {"error": f"Unexpected error: {str(e)}"}
-
-    llm_response = response.json()["response"]
-    words = llm_response.split()
-    word_count = len(words)
-
-    try:
-        language = detect(llm_response)
-    except:
-        language = "unknown"
-
-    quality = {
-        "is_empty": len(llm_response.strip()) == 0,
-        "is_too_short": word_count < 10,
-        "language": language,
-        "language_confidence": "low" if word_count < 3 else "high"
-    }
-
-    judge = judge_response(request.prompt, llm_response)
-
-    return {
-        "prompt": request.prompt,
-        "response": llm_response,
-        "word_count": word_count,
-        "char_count": len(llm_response),
-        "quality": {
-            "is_empty": len(llm_response.strip()) == 0,
-            "is_too_short": word_count < 10,
-            "language": language,
-            "language_confidence": "low" if word_count < 3 else "high",
-            "judge_score": judge["judge_score"],
-            "judge_feedback": judge["judge_feedback"]
-        }
     }
 
 def judge_response(prompt: str, response: str) -> dict:
@@ -104,7 +59,6 @@ Responde ÚNICAMENTE con este JSON sin texto adicional:
             },
             timeout=120.0
         )
-        import json
         raw = judge_result.json()["response"].strip()
         parsed = json.loads(raw)
         return {
@@ -116,3 +70,58 @@ Responde ÚNICAMENTE con este JSON sin texto adicional:
             "judge_score": None,
             "judge_feedback": "Judge evaluation failed"
         }
+
+@app.post("/evaluate")
+@observe(name="evaluate")
+def evaluate_llm(request: LLMRequest):
+    try:
+        response = httpx.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "qwen2.5-coder:7b",
+                "prompt": request.prompt,
+                "stream": False
+            },
+            timeout=120.0
+        )
+        response.raise_for_status()
+        ollama_data = response.json()
+        prompt_tokens = ollama_data.get("prompt_eval_count", 0)
+        completion_tokens = ollama_data.get("eval_count", 0)
+    except httpx.ConnectError:
+        return {"error": "LLM service unavailable. Make sure Ollama is running."}
+    except httpx.TimeoutException:
+        return {"error": "LLM service timed out. Try again or use a shorter prompt."}
+    except Exception as e:
+        return {"error": f"Unexpected error: {str(e)}"}
+
+    llm_response = ollama_data["response"]
+    words = llm_response.split()
+    word_count = len(words)
+
+    try:
+        language = detect(llm_response)
+    except:
+        language = "unknown"
+
+    judge = judge_response(request.prompt, llm_response)
+
+    quality = {
+        "is_empty": len(llm_response.strip()) == 0,
+        "is_too_short": word_count < 10,
+        "language": language,
+        "language_confidence": "low" if word_count < 3 else "high",
+        "judge_score": judge["judge_score"],
+        "judge_feedback": judge["judge_feedback"],
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": prompt_tokens + completion_tokens
+    }
+
+    return {
+        "prompt": request.prompt,
+        "response": llm_response,
+        "word_count": word_count,
+        "char_count": len(llm_response),
+        "quality": quality
+    }
